@@ -18,6 +18,19 @@ dependencies = []
 [project.scripts]
 zipr = "src.main:main"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# UV
+# ══════════════════════════════════════════════════════════════════════════════
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.4",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pre-commit>=4.5.1",
+]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # BUILD SYSTEM
@@ -31,3 +44,23 @@ build-backend = "hatchling.build"
 # ══════════════════════════════════════════════════════════════════════════════
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RUFF - Linter & Formatter
+# ══════════════════════════════════════════════════════════════════════════════
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+exclude = [".git", ".venv", "__pycache__", "dist", "build", "*.egg-info"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    "E501",
+    "ISC001",
+]
+fixable = ["ALL"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
