@@ -23,7 +23,7 @@ def main() -> None:
         args.output,
         "w",
         compression=zipfile.ZIP_DEFLATED,
-        compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
+        compresslevel=isal_zlib.ISAL_BEST_COMPRESSION,
     ) as zipf:
         if os.path.isfile(args.input):
             base_dir = os.path.dirname(os.path.abspath(args.input))
