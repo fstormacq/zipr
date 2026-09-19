@@ -20,31 +20,33 @@ BLUE = "\033[34m"
 CYAN = "\033[36m"
 
 
-def info(msg: str) -> None:
-    print(f"{CYAN}ℹ{RST}  {msg}")
+def info(msg: str, verbose: bool = False) -> None:
+    if verbose:
+        print(f"{CYAN}ℹ{RST}  {msg}")
 
 
-def ok(msg: str) -> None:
-    print(f"{GREEN}✔{RST}  {msg}")
+def warn(msg: str, verbose: bool = True) -> None:
+    if verbose:
+        print(f"{YELLOW}⚠{RST}  {msg}")
 
 
-def warn(msg: str) -> None:
-    print(f"{YELLOW}⚠{RST}  {msg}")
+def error(msg: str, verbose: bool = True) -> None:
+    if verbose:
+        print(f"{RED}✖{RST}  {msg}")
 
 
-def error(msg: str) -> None:
-    print(f"{RED}✖{RST}  {msg}")
+def dim(msg: str, verbose: bool = False) -> None:
+    if verbose:
+        print(f"{DIM}{msg}{RST}")
 
 
-def dim(msg: str) -> None:
-    print(f"{DIM}{msg}{RST}")
-
-
-def header(msg: str) -> None:
+def header(msg: str, verbose: bool = False) -> None:
     """Print a bold section title followed by a dim separator line."""
-    print(f"\n{BOLD}{msg}{RST}")
-    print(f"{DIM}{'─' * len(msg)}{RST}")
+    if verbose:
+        print(f"\n{BOLD}{msg}{RST}")
+        print(f"{DIM}{'─' * len(msg)}{RST}")
 
 
-def debug(msg: str) -> None:
-    print(f"{BLUE}◆{RST}  {DIM}{msg}{RST}")
+def debug(msg: str, debug: bool = False) -> None:
+    if debug:
+        print(f"{BLUE}◆{RST}  {DIM}{msg}{RST}")
