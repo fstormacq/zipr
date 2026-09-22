@@ -5,15 +5,15 @@ import zipfile
 from isal import isal_zlib
 
 # from concurrent.futures import ThreadPoolExecutor, as_completed
-from .design import banner
+from .design.banner import banner
 from .utils import arg_parser as parser
 from .utils import logger
 
 
 def main() -> None:
-    print(banner.BANNER_FULL_SIZE)
+    args = parser.parse_zip_args()
 
-    args = parser.parse_args()
+    banner(args.verbose or args.debug)
 
     if args.threads == 1:
         logger.info("Using a single thread for zipping.", args.verbose or args.debug)
@@ -40,7 +40,10 @@ def main() -> None:
                 archive_name = os.path.relpath(file_path, base_dir)
                 zipf.write(file_path, archive_name)
 
-    logger.info(f"Successfully created the zip file at {args.output}", True)
+    logger.info(
+        f"Successfully created the zip file at {args.output}",
+        args.verbose or args.debug,
+    )
 
 
 if __name__ == "__main__":

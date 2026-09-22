@@ -18,7 +18,8 @@ dependencies = [
 # PROJECT SCRIPTS
 # ══════════════════════════════════════════════════════════════════════════════
 [project.scripts]
-zipr = "src.main:main"
+zipr = "src.zipr:main"
+unzipr = "src.unzipr:main"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UV

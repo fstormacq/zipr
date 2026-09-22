@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from src.main import main
+from src.zipr import main
 
 
 @pytest.mark.integration

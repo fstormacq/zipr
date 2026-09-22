@@ -21,3 +21,9 @@ BANNER_FULL_SIZE = r"""
 
 ==================================
 """
+
+
+def banner(printable: bool = False) -> None:
+    """Print the banner to the console."""
+    if printable:
+        print(BANNER_FULL_SIZE)

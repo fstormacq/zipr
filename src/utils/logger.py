@@ -9,6 +9,8 @@ Logging helpers that mirror the ANSI visual identity of the shell scripts.
      header - bold section title with a dim separator
 """
 
+import sys
+
 RST = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
@@ -33,6 +35,7 @@ def warn(msg: str, verbose: bool = True) -> None:
 def error(msg: str, verbose: bool = True) -> None:
     if verbose:
         print(f"{RED}✖{RST}  {msg}")
+    sys.exit(1)
 
 
 def dim(msg: str, verbose: bool = False) -> None:
