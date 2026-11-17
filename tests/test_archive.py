@@ -1,29 +1,21 @@
-import sys
 import zipfile
 import zlib
 
 import pytest
 from isal import isal_zlib
 
-from zipr.zipr import main
+from zipr.archive import create_archive
 
 
 @pytest.mark.integration
-def test_cli_zips_directory(monkeypatch, tmp_path):
+def test_zips_directory(tmp_path):
     input_directory = tmp_path / "input"
-    input_directory.mkdir()
     input_file = input_directory / "nested" / "file.txt"
-    input_file.parent.mkdir()
+    input_file.parent.mkdir(parents=True)
     input_file.write_text("test content")
-
     output_file = tmp_path / "archive.zip"
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["zipr", str(input_directory), "--output", str(output_file)],
-    )
 
-    main()
+    create_archive(str(input_directory), str(output_file))
 
     with zipfile.ZipFile(output_file) as archive:
         assert archive.namelist() == ["nested/file.txt"]
@@ -31,18 +23,12 @@ def test_cli_zips_directory(monkeypatch, tmp_path):
 
 
 @pytest.mark.integration
-def test_cli_zips_file(monkeypatch, tmp_path):
+def test_zips_file(tmp_path):
     input_file = tmp_path / "file.txt"
     input_file.write_text("test content")
-
     output_file = tmp_path / "archive.zip"
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["zipr", str(input_file), "--output", str(output_file)],
-    )
 
-    main()
+    create_archive(str(input_file), str(output_file))
 
     with zipfile.ZipFile(output_file) as archive:
         assert archive.namelist() == ["file.txt"]
@@ -50,19 +36,24 @@ def test_cli_zips_file(monkeypatch, tmp_path):
 
 
 @pytest.mark.integration
-def test_cli_does_not_include_output_archive(monkeypatch, tmp_path):
+def test_creates_missing_output_directories(tmp_path):
+    input_file = tmp_path / "file.txt"
+    input_file.write_text("test content")
+    output_file = tmp_path / "a" / "b" / "archive.zip"
+
+    create_archive(str(input_file), str(output_file))
+
+    assert zipfile.is_zipfile(output_file)
+
+
+@pytest.mark.integration
+def test_does_not_include_output_archive(tmp_path):
     input_directory = tmp_path / "input"
     input_directory.mkdir()
     (input_directory / "file.txt").write_text("test content")
-
     output_file = input_directory / "archive.zip"
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["zipr", str(input_directory), "--output", str(output_file)],
-    )
 
-    main()
+    create_archive(str(input_directory), str(output_file))
 
     with zipfile.ZipFile(output_file) as archive:
         assert archive.namelist() == ["file.txt"]
@@ -73,27 +64,26 @@ def test_cli_does_not_include_output_archive(monkeypatch, tmp_path):
 
 
 @pytest.mark.integration
-def test_cli_uses_isal_regardless_of_thread_count(monkeypatch, tmp_path):
+def test_compresses_with_isal_without_leaking_the_patch(tmp_path, monkeypatch):
+    calls = []
+    original = isal_zlib.compressobj
+
+    def spy(*args, **kwargs):
+        calls.append(args)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(isal_zlib, "compressobj", spy)
     input_file = tmp_path / "file.txt"
     input_file.write_text("test content")
-    output_file = tmp_path / "archive.zip"
-    monkeypatch.setattr("os.cpu_count", lambda: 4)
-    monkeypatch.setattr(zipfile, "zlib", zlib)
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["zipr", str(input_file), "--output", str(output_file), "--threads", "2"],
-    )
 
-    main()
+    create_archive(str(input_file), str(tmp_path / "archive.zip"))
 
-    assert zipfile.zlib is isal_zlib
-    with zipfile.ZipFile(output_file) as archive:
-        assert archive.read("file.txt") == b"test content"
+    assert calls
+    assert zipfile.zlib is zlib
 
 
 @pytest.mark.integration
-def test_cli_keeps_existing_archive_on_failure(monkeypatch, tmp_path):
+def test_keeps_existing_archive_on_failure(tmp_path, monkeypatch):
     input_file = tmp_path / "file.txt"
     input_file.write_text("test content")
     output_file = tmp_path / "archive.zip"
@@ -103,14 +93,9 @@ def test_cli_keeps_existing_archive_on_failure(monkeypatch, tmp_path):
         raise OSError("disk full")
 
     monkeypatch.setattr(zipfile.ZipFile, "write", fail)
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        ["zipr", str(input_file), "--output", str(output_file), "--force"],
-    )
 
     with pytest.raises(OSError):
-        main()
+        create_archive(str(input_file), str(output_file))
 
     assert output_file.read_bytes() == b"previous archive"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["archive.zip", "file.txt"]

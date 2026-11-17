@@ -18,8 +18,8 @@ dependencies = [
 # PROJECT SCRIPTS
 # ══════════════════════════════════════════════════════════════════════════════
 [project.scripts]
-zipr = "zipr.zipr:main"
-unzipr = "zipr.unzipr:main"
+zipr = "zipr.cli:zip_main"
+unzipr = "zipr.cli:unzip_main"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UV
@@ -77,8 +77,8 @@ minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
-    "unit: fast, isolated unit tests with no I/O",
-    "integration: tests that interact with the filesystem or hardware",
+    "unit: fast, isolated tests of a single function",
+    "integration: tests that exercise a whole feature end to end",
     "slow: tests that are long to execute",
 ]
 addopts = [

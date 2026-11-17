@@ -1,3 +1,5 @@
+import sys
+
 # 1. Minimaliste
 BANNER_MINIMAL = "zipr ▸ parallel zip"
 
@@ -24,6 +26,6 @@ BANNER_FULL_SIZE = r"""
 
 
 def banner(printable: bool = False) -> None:
-    """Print the banner to the console."""
+    """Print the banner to stderr, keeping stdout free for data."""
     if printable:
-        print(BANNER_FULL_SIZE)
+        print(BANNER_FULL_SIZE, file=sys.stderr)
