@@ -1,3 +1,4 @@
+import argparse
 import io
 import zipfile
 
@@ -8,6 +9,7 @@ from zipr.cli import (
     default_unzip_output,
     default_zip_output,
     normalize_threads,
+    parse_size,
     parse_unzip_args,
     parse_zip_args,
     unzip_main,
@@ -235,3 +237,38 @@ def test_unzip_main_logs_members_only_in_debug(tmp_path, capsys, flag, logged):
 
     assert unzip_main([str(archive), "-o", str(tmp_path / "out"), *flag]) == 0
     assert ("Extracting file.txt" in capsys.readouterr().err) is logged
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("512", 512),
+        ("500M", 500 * 1024**2),
+        ("1.5G", int(1.5 * 1024**3)),
+        ("2GiB", 2 * 1024**3),
+        ("10kb", 10 * 1024),
+    ],
+)
+def test_parse_size(value, expected):
+    assert parse_size(value) == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("value", ["", "abc", "-1G", "1X"])
+def test_parse_size_rejects_invalid_values(value):
+    with pytest.raises(argparse.ArgumentTypeError):
+        parse_size(value)
+
+
+@pytest.mark.integration
+def test_unzip_main_respects_max_size(tmp_path, capsys):
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w") as zipf:
+        zipf.writestr("file.txt", "x" * 2048)
+
+    assert (
+        unzip_main([str(archive), "-o", str(tmp_path / "out"), "--max-size", "1K"]) == 1
+    )
+    assert "above --max-size" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()

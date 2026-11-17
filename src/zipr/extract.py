@@ -1,4 +1,5 @@
 import os
+import shutil
 import stat
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -6,14 +7,21 @@ from pathlib import Path, PurePosixPath
 from .errors import ZiprError
 from .log import log
 
+# Deflate cannot exceed a ~1032:1 ratio, so an archive expanding further was
+# crafted (e.g. overlapping entries) rather than made of compressible data.
+MAX_COMPRESSION_RATIO = 1100
 
-def extract_archive(archive_path: str, destination: str) -> None:
+
+def extract_archive(
+    archive_path: str, destination: str, max_size: int | None = None
+) -> None:
     """Extract archive_path into destination after validating every member."""
     destination_path = Path(destination).resolve()
 
     with zipfile.ZipFile(archive_path) as zipf:
         members = zipf.infolist()
         _check_members(zipf, members, destination_path)
+        _check_size(members, archive_path, destination_path, max_size)
 
         links = []
         directories = []
@@ -79,6 +87,56 @@ def _check_members(
         raise ZiprError(
             f"Member(s) stored below a link in ZIP archive: {', '.join(nested_members)}"
         )
+
+
+def _check_size(
+    members: list[zipfile.ZipInfo],
+    archive_path: str,
+    destination: Path,
+    max_size: int | None,
+) -> None:
+    """
+    Refuse zip bombs based on the sizes declared in the central directory.
+
+    Declared sizes can be trusted as an upper bound: zipfile stops reading a
+    member once its declared size has been produced.
+    """
+    total_size = sum(member.file_size for member in members)
+    archive_size = max(os.path.getsize(archive_path), 1)
+
+    if max_size is not None and total_size > max_size:
+        raise ZiprError(
+            f"Archive expands to {format_size(total_size)}, "
+            f"above --max-size {format_size(max_size)}."
+        )
+
+    if total_size / archive_size > MAX_COMPRESSION_RATIO:
+        raise ZiprError(
+            f"Archive expands to {format_size(total_size)} from "
+            f"{format_size(archive_size)}: this is not achievable with deflate, "
+            "it looks like a zip bomb."
+        )
+
+    free_space = shutil.disk_usage(_existing_ancestor(destination)).free
+    if total_size > free_space:
+        raise ZiprError(
+            f"Archive expands to {format_size(total_size)} but only "
+            f"{format_size(free_space)} is free on the destination disk."
+        )
+
+
+def _existing_ancestor(path: Path) -> Path:
+    while not path.exists():
+        path = path.parent
+    return path
+
+
+def format_size(size: float) -> str:
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if size < 1024 or unit == "TiB":
+            break
+        size /= 1024
+    return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
 
 
 def _is_within(path: Path, directory: Path) -> bool:

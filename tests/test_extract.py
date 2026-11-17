@@ -1,4 +1,5 @@
 import os
+import shutil
 import stat
 import zipfile
 
@@ -6,7 +7,7 @@ import pytest
 
 from zipr.archive import create_archive
 from zipr.errors import ZiprError
-from zipr.extract import extract_archive
+from zipr.extract import extract_archive, format_size
 
 
 @pytest.mark.integration
@@ -108,3 +109,59 @@ def test_rejects_member_stored_below_a_link(tmp_path):
 
     with pytest.raises(ZiprError, match="below a link"):
         extract_archive(str(archive), str(output_directory))
+
+
+@pytest.mark.integration
+def test_accepts_highly_compressible_data(tmp_path):
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
+        zipf.writestr("zeros.bin", bytes(10 * 1024**2))
+
+    extract_archive(str(archive), str(tmp_path / "output"))
+
+    assert (tmp_path / "output" / "zeros.bin").stat().st_size == 10 * 1024**2
+
+
+@pytest.mark.integration
+def test_rejects_impossible_compression_ratio(tmp_path):
+    # Many entries sharing the same compressed data, like the classic
+    # overlapping zip bomb, expand far beyond what deflate can achieve.
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipf:
+        zipf.writestr("zeros.bin", bytes(1024**2))
+    with zipfile.ZipFile(archive, "a") as zipf:
+        original = zipf.getinfo("zeros.bin")
+        for index in range(2000):
+            clone = zipfile.ZipInfo(f"clone-{index}.bin", original.date_time)
+            for attribute in ("compress_type", "CRC", "compress_size", "file_size"):
+                setattr(clone, attribute, getattr(original, attribute))
+            clone.header_offset = original.header_offset
+            zipf.filelist.append(clone)
+            zipf.NameToInfo[clone.filename] = clone
+        zipf._didModify = True
+
+    with pytest.raises(ZiprError, match="zip bomb"):
+        extract_archive(str(archive), str(tmp_path / "output"))
+    assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.integration
+def test_rejects_archive_larger_than_free_space(tmp_path, monkeypatch):
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w") as zipf:
+        zipf.writestr("file.txt", "x" * 2048)
+    monkeypatch.setattr(
+        "shutil.disk_usage", lambda _: shutil._ntuple_diskusage(0, 0, 1024)
+    )
+
+    with pytest.raises(ZiprError, match="free on the destination disk"):
+        extract_archive(str(archive), str(tmp_path / "output"))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("size", "expected"),
+    [(0, "0 B"), (1023, "1023 B"), (1536, "1.5 KiB"), (5 * 1024**3, "5.0 GiB")],
+)
+def test_format_size(size, expected):
+    assert format_size(size) == expected

@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import sys
 import zipfile
 from collections.abc import Callable
@@ -59,7 +60,7 @@ def _unzip(args: argparse.Namespace) -> int:
         log.info("Operation cancelled by the user.")
         return 0
 
-    extract_archive(args.input, output)
+    extract_archive(args.input, output, max_size=args.max_size)
     log.info("Successfully extracted the zip file to %s", output)
     return 0
 
@@ -92,6 +93,12 @@ def parse_unzip_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="unzip, but it actually uses all your cores.",
         input_help="Input ZIP file to be unzipped.",
         output_help="Output directory. (Default: <input> without extension)",
+    )
+    parser.add_argument(
+        "--max-size",
+        type=parse_size,
+        help="Refuse archives expanding to more than this size, e.g. 500M or 2G. "
+        "(Default: free space on the destination disk)",
     )
     return parser.parse_args(argv)
 
@@ -128,6 +135,18 @@ def _positive_int(value: str) -> int:
     if number < 1:
         raise argparse.ArgumentTypeError("must be at least 1")
     return number
+
+
+_SIZE_UNITS = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
+
+
+def parse_size(value: str) -> int:
+    """Parse a human size such as 512, 500M, 1.5G or 2GiB (powers of 1024)."""
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)\s*([KMGT]?)(?:i?B)?", value.strip(), re.I)
+    if not match:
+        raise argparse.ArgumentTypeError(f"invalid size: {value!r}")
+    number, unit = match.groups()
+    return int(float(number) * _SIZE_UNITS[unit.upper()])
 
 
 # ── Validation ───────────────────────────────────────────────────────────────
