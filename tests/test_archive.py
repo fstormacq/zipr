@@ -1,3 +1,4 @@
+import stat
 import zipfile
 import zlib
 
@@ -18,7 +19,7 @@ def test_zips_directory(tmp_path):
     create_archive(str(input_directory), str(output_file))
 
     with zipfile.ZipFile(output_file) as archive:
-        assert archive.namelist() == ["nested/file.txt"]
+        assert archive.namelist() == ["nested/", "nested/file.txt"]
         assert archive.read("nested/file.txt") == b"test content"
 
 
@@ -118,3 +119,64 @@ def test_compression_level_is_forwarded_to_isal(tmp_path, monkeypatch):
     create_archive(str(input_file), str(tmp_path / "fast.zip"), level=0)
 
     assert levels == [2, 0]
+
+
+@pytest.mark.integration
+def test_archive_is_sorted_and_keeps_directories(tmp_path):
+    input_directory = tmp_path / "input"
+    for name in ("b", "a", "empty"):
+        (input_directory / name).mkdir(parents=True)
+    for name in ("b/2.txt", "b/1.txt", "a/z.txt", "top.txt"):
+        (input_directory / name).write_text(name)
+    output_file = tmp_path / "archive.zip"
+
+    create_archive(str(input_directory), str(output_file))
+
+    with zipfile.ZipFile(output_file) as archive:
+        assert archive.namelist() == [
+            "top.txt",
+            "a/",
+            "a/z.txt",
+            "b/",
+            "b/1.txt",
+            "b/2.txt",
+            "empty/",
+        ]
+
+
+@pytest.mark.integration
+def test_stores_symlinks_as_links(tmp_path):
+    input_directory = tmp_path / "input"
+    (input_directory / "real_dir").mkdir(parents=True)
+    (input_directory / "real_dir" / "file.txt").write_text("test content")
+    (input_directory / "file_link").symlink_to("real_dir/file.txt")
+    (input_directory / "dir_link").symlink_to("real_dir")
+    (input_directory / "broken_link").symlink_to("missing")
+    output_file = tmp_path / "archive.zip"
+
+    create_archive(str(input_directory), str(output_file))
+
+    with zipfile.ZipFile(output_file) as archive:
+        links = {
+            info.filename: archive.read(info).decode()
+            for info in archive.infolist()
+            if stat.S_ISLNK(info.external_attr >> 16)
+        }
+        assert links == {
+            "broken_link": "missing",
+            "dir_link": "real_dir",
+            "file_link": "real_dir/file.txt",
+        }
+        assert "dir_link/file.txt" not in archive.namelist()
+
+
+@pytest.mark.integration
+def test_follows_link_given_as_input(tmp_path):
+    (tmp_path / "file.txt").write_text("test content")
+    (tmp_path / "link.txt").symlink_to("file.txt")
+    output_file = tmp_path / "archive.zip"
+
+    create_archive(str(tmp_path / "link.txt"), str(output_file))
+
+    with zipfile.ZipFile(output_file) as archive:
+        assert archive.read("link.txt") == b"test content"
