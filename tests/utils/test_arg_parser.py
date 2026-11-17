@@ -6,11 +6,12 @@ import pytest
 from src.utils.arg_parser import check_cli_args, parse_unzip_args, parse_zip_args
 
 
-def make_args(input_path, output=None, threads=4):
+def make_args(input_path, output=None, threads=4, force=False):
     return argparse.Namespace(
         input=str(input_path),
         output=str(output) if output is not None else None,
         threads=threads,
+        force=force,
         verbose=False,
         debug=False,
     )
@@ -152,3 +153,64 @@ def test_check_cli_args_clamps_threads_to_cpu_count(tmp_path, monkeypatch):
     check_cli_args(args)
 
     assert args.threads == 8
+
+
+@pytest.mark.unit
+def test_check_cli_args_derives_output_name_for_current_directory(
+    tmp_path, monkeypatch
+):
+    input_directory = tmp_path / "input"
+    input_directory.mkdir()
+    monkeypatch.chdir(input_directory)
+
+    for current_directory in (".", "./"):
+        args = make_args(current_directory)
+        check_cli_args(args)
+        assert args.output == str(tmp_path / "input.zip")
+
+
+@pytest.mark.unit
+def test_check_cli_args_refuses_overwrite_without_tty(tmp_path, monkeypatch):
+    input_file = tmp_path / "input.txt"
+    input_file.touch()
+    output_file = tmp_path / "output.zip"
+    output_file.touch()
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    with pytest.raises(SystemExit) as exc_info:
+        check_cli_args(make_args(input_file, output_file))
+
+    assert exc_info.value.code == 1
+
+
+@pytest.mark.unit
+def test_check_cli_args_overwrites_with_force(tmp_path, monkeypatch):
+    input_file = tmp_path / "input.txt"
+    input_file.touch()
+    output_file = tmp_path / "output.zip"
+    output_file.touch()
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+    args = make_args(input_file, output_file, force=True)
+    check_cli_args(args)
+
+    assert args.output == str(output_file)
+
+
+@pytest.mark.unit
+def test_check_cli_args_cancels_on_eof(tmp_path, monkeypatch):
+    input_file = tmp_path / "input.txt"
+    input_file.touch()
+    output_file = tmp_path / "output.zip"
+    output_file.touch()
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
+    def raise_eof(_):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", raise_eof)
+
+    with pytest.raises(SystemExit) as exc_info:
+        check_cli_args(make_args(input_file, output_file))
+
+    assert exc_info.value.code == 0

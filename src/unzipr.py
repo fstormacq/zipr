@@ -4,7 +4,6 @@ from pathlib import Path
 
 from isal import isal_zlib
 
-# from concurrent.futures import ThreadPoolExecutor, as_completed
 from .design.banner import banner
 from .utils import arg_parser as parser
 from .utils import logger
@@ -15,17 +14,10 @@ def main() -> None:
 
     banner(args.verbose or args.debug)
 
-    if args.threads == 1:
-        logger.info("Using a single thread for zipping.", args.verbose or args.debug)
-        zipfile.zlib = isal_zlib
+    zipfile.zlib = isal_zlib
 
-    with zipfile.ZipFile(
-        args.input,
-        "r",
-        compression=zipfile.ZIP_DEFLATED,
-        compresslevel=isal_zlib.ISAL_BEST_COMPRESSION,
-    ) as zipf:
-        safe_extract_all(zipf, args.output)
+    with zipfile.ZipFile(args.input, "r") as zipf:
+        safe_extract_all(zipf, args.output, args.debug)
 
     logger.info(
         f"Successfully extracted the zip file to {args.output}",
@@ -33,20 +25,28 @@ def main() -> None:
     )
 
 
-def safe_extract_all(zipf: zipfile.ZipFile, destination: str) -> None:
+def safe_extract_all(zipf: zipfile.ZipFile, destination: str, debug: bool) -> None:
     destination_path = Path(destination).resolve()
+    members = zipf.infolist()
 
-    for member in zipf.infolist():
-        target_path = (destination_path / member.filename).resolve()
+    # Validate every member before writing anything, so a malicious archive
+    # never leaves a partial extraction behind.
+    unsafe_members = [
+        member.filename
+        for member in members
+        if not _is_within(destination_path / member.filename, destination_path)
+    ]
+    if unsafe_members:
+        logger.error(f"Unsafe path(s) in ZIP archive: {', '.join(unsafe_members)}")
 
-        if (
-            target_path != destination_path
-            and destination_path not in target_path.parents
-        ):
-            logger.error(f"Unsafe path in ZIP archive: {member.filename}")
-
-        logger.debug(f"Extracting {member.filename} to {target_path}", True)
+    for member in members:
+        logger.debug(f"Extracting {member.filename} to {destination_path}", debug)
         zipf.extract(member, destination_path)
+
+
+def _is_within(path: Path, directory: Path) -> bool:
+    resolved = path.resolve()
+    return resolved == directory or directory in resolved.parents
 
 
 if __name__ == "__main__":

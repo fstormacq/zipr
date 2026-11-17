@@ -26,8 +26,15 @@ def parse_zip_args():
         "--threads",
         "-t",
         type=int,
-        help="Number of threads to use for zipping. (Default: 4)",
+        help="Number of threads to use for zipping. (Default: %(default)s)",
         default=DEFAULT_THREADS,
+    )
+
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Overwrite the output without asking for confirmation.",
     )
 
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output.")
@@ -58,8 +65,15 @@ def parse_unzip_args():
         "--threads",
         "-t",
         type=int,
-        help="Number of threads to use for unzipping. (Default: 4)",
+        help="Number of threads to use for unzipping. (Default: %(default)s)",
         default=DEFAULT_THREADS,
+    )
+
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Overwrite the output without asking for confirmation.",
     )
 
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output.")
@@ -105,7 +119,14 @@ def _get_output_path(args: argparse.Namespace, require_zip: bool = False) -> str
         base_name, _ = os.path.splitext(args.input)
         output = f"{base_name}"
     elif os.path.isdir(args.input):
-        output = f"{args.input.rstrip(os.sep)}.zip"
+        input_dir = os.path.abspath(args.input)
+        if not os.path.basename(input_dir):
+            logger.error(
+                f"Cannot derive an archive name from '{args.input}'. Use --output."
+            )
+        output = os.path.join(
+            os.path.dirname(input_dir), f"{os.path.basename(input_dir)}.zip"
+        )
     elif os.path.isfile(args.input):
         base_name, _ = os.path.splitext(args.input)
         output = f"{base_name}.zip"
@@ -130,9 +151,21 @@ def _prepare_output(args: argparse.Namespace) -> None:
         os.makedirs(output_dir, exist_ok=True)
 
     if os.path.exists(args.output):
+        if args.force:
+            logger.info(f"Overwriting '{args.output}' (--force).", args.verbose)
+            return
+
+        if not sys.stdin.isatty():
+            logger.error(
+                f"Output '{args.output}' already exists. Use --force to overwrite it."
+            )
+
         logger.warn(f"Output file '{args.output}' already exists.")
 
-        response = input("Do you want to overwrite it? (y/n): ").strip().lower()
+        try:
+            response = input("Do you want to overwrite it? (y/n): ").strip().lower()
+        except EOFError:
+            response = ""
 
         if response != "y":
             logger.info("Operation cancelled by the user.", args.verbose)
