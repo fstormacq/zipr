@@ -60,6 +60,15 @@ def test_parse_args_rejects_invalid_thread_count(threads):
 
 
 @pytest.mark.unit
+def test_parse_zip_args_level():
+    assert parse_zip_args(["input"]).level == 2
+    assert parse_zip_args(["input", "-l", "0"]).level == 0
+
+    with pytest.raises(SystemExit):
+        parse_zip_args(["input", "--level", "4"])
+
+
+@pytest.mark.unit
 def test_normalize_threads_clamps_to_cpu_count(monkeypatch):
     monkeypatch.setattr("os.cpu_count", lambda: 8)
 

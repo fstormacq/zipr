@@ -99,3 +99,22 @@ def test_keeps_existing_archive_on_failure(tmp_path, monkeypatch):
 
     assert output_file.read_bytes() == b"previous archive"
     assert sorted(p.name for p in tmp_path.iterdir()) == ["archive.zip", "file.txt"]
+
+
+@pytest.mark.integration
+def test_compression_level_is_forwarded_to_isal(tmp_path, monkeypatch):
+    levels = []
+    original = isal_zlib.compressobj
+
+    def spy(level, *args, **kwargs):
+        levels.append(level)
+        return original(level, *args, **kwargs)
+
+    monkeypatch.setattr(isal_zlib, "compressobj", spy)
+    input_file = tmp_path / "file.txt"
+    input_file.write_text("test content")
+
+    create_archive(str(input_file), str(tmp_path / "default.zip"))
+    create_archive(str(input_file), str(tmp_path / "fast.zip"), level=0)
+
+    assert levels == [2, 0]

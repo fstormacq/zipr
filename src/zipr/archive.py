@@ -8,8 +8,16 @@ from isal import isal_zlib
 
 from .log import log
 
+COMPRESSION_LEVELS = range(
+    isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION + 1
+)
+# Level 3 is ~1.7x slower than level 2 for about 1% smaller archives.
+DEFAULT_COMPRESSION_LEVEL = isal_zlib.ISAL_DEFAULT_COMPRESSION
 
-def create_archive(input_path: str, output_path: str) -> None:
+
+def create_archive(
+    input_path: str, output_path: str, level: int = DEFAULT_COMPRESSION_LEVEL
+) -> None:
     """Zip a file or a directory, atomically replacing output_path."""
     output_path = os.path.abspath(output_path)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -24,7 +32,7 @@ def create_archive(input_path: str, output_path: str) -> None:
                 tmp_path,
                 "w",
                 compression=zipfile.ZIP_DEFLATED,
-                compresslevel=isal_zlib.ISAL_BEST_COMPRESSION,
+                compresslevel=level,
             ) as zipf,
         ):
             for path, archive_name in _iter_entries(input_path, excluded_paths):

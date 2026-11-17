@@ -4,7 +4,7 @@ import sys
 import zipfile
 from collections.abc import Callable
 
-from .archive import create_archive
+from .archive import COMPRESSION_LEVELS, DEFAULT_COMPRESSION_LEVEL, create_archive
 from .banner import banner
 from .errors import ZiprError
 from .extract import extract_archive
@@ -44,7 +44,7 @@ def _zip(args: argparse.Namespace) -> int:
         log.info("Operation cancelled by the user.")
         return 0
 
-    create_archive(args.input, output)
+    create_archive(args.input, output, level=args.level)
     log.info("Successfully created the zip file at %s", output)
     return 0
 
@@ -73,6 +73,15 @@ def parse_zip_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="zip, but it actually uses all your cores.",
         input_help="Input file or directory to be zipped.",
         output_help="Output ZIP file. (Default: <input>.zip)",
+    )
+    parser.add_argument(
+        "--level",
+        "-l",
+        type=int,
+        choices=COMPRESSION_LEVELS,
+        default=DEFAULT_COMPRESSION_LEVEL,
+        help="ISA-L compression level, from 0 (fastest) to 3 (smallest). "
+        "(Default: %(default)s)",
     )
     return parser.parse_args(argv)
 
