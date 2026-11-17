@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from src.unzipr import main, safe_extract_all
+from zipr.unzipr import main, safe_extract_all
 
 
 @pytest.mark.integration

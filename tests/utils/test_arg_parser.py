@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from src.utils.arg_parser import check_cli_args, parse_unzip_args, parse_zip_args
+from zipr.utils.arg_parser import check_cli_args, parse_unzip_args, parse_zip_args
 
 
 def make_args(input_path, output=None, threads=4, force=False):
@@ -148,7 +148,7 @@ def test_check_cli_args_clamps_threads_to_cpu_count(tmp_path, monkeypatch):
     input_file = tmp_path / "input.txt"
     input_file.touch()
     args = make_args(input_file, tmp_path / "output.zip", threads=16)
-    monkeypatch.setattr("src.utils.arg_parser.os.cpu_count", lambda: 8)
+    monkeypatch.setattr("zipr.utils.arg_parser.os.cpu_count", lambda: 8)
 
     check_cli_args(args)
 

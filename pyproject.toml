@@ -18,8 +18,8 @@ dependencies = [
 # PROJECT SCRIPTS
 # ══════════════════════════════════════════════════════════════════════════════
 [project.scripts]
-zipr = "src.zipr:main"
-unzipr = "src.unzipr:main"
+zipr = "zipr.zipr:main"
+unzipr = "zipr.unzipr:main"
 
 # ══════════════════════════════════════════════════════════════════════════════
 # UV
@@ -47,7 +47,7 @@ build-backend = "hatchling.build"
 # HATCH
 # ══════════════════════════════════════════════════════════════════════════════
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["src/zipr"]
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RUFF - Linter & Formatter
@@ -87,7 +87,7 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--import-mode=importlib",
-    "--cov=src",
+    "--cov=zipr",
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
 ]
@@ -97,9 +97,9 @@ addopts = [
 # COVERAGE
 # ══════════════════════════════════════════════════════════════════════════════
 [tool.coverage.run]
-source = ["src"]
+source = ["zipr"]
 branch = true
-omit = ["*/tests/*", "*/__init__.py"]
+omit = ["*/tests/*"]
 
 [tool.coverage.report]
 show_missing = true

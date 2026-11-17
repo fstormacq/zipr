@@ -5,7 +5,7 @@ import zlib
 import pytest
 from isal import isal_zlib
 
-from src.zipr import main
+from zipr.zipr import main
 
 
 @pytest.mark.integration
