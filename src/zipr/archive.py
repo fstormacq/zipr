@@ -49,7 +49,7 @@ def create_archive(
 
 
 @contextlib.contextmanager
-def _isal_backend() -> Generator[None]:
+def _isal_backend() -> Generator[None, None, None]:
     """
     Route zipfile's deflate through ISA-L for the duration of the block.
 
