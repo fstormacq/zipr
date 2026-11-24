@@ -80,6 +80,9 @@ uv run unzipr ./archive.zip --output ./extracted --max-size 2G
 Safety notes:
 - The whole archive is validated before anything is written. It is refused if a
   member or a link would escape the destination, or if a member is stored below a link.
+  Link targets are resolved as the system will resolve them, through the archive's
+  other links and the links already in the destination; links that loop, or that
+  use `..` from a path that does not exist yet, are refused as well.
 - Zip bombs are refused: the declared size must fit in `--max-size` (if given) and
   in the free disk space, and cannot exceed the 1100:1 ratio deflate is capable of.
 - File permissions (rwx) are restored; setuid, setgid and sticky bits are dropped.

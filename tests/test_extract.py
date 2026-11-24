@@ -100,6 +100,81 @@ def test_rejects_link_escaping_destination(tmp_path, target):
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "links",
+    [
+        # Each 'b' is the destination itself, so every '..' climbs above it.
+        [("b", "."), ("passwd", "b/" * 10 + "../" * 10 + "etc/passwd")],
+        # The chain may be spread over several links.
+        [("b", "."), ("c", "b/b"), ("escape", "c/../x")],
+        # Another spelling of 'B' is the same file on case-insensitive disks.
+        [("B", "."), ("escape", "b/../x")],
+        # zipfile drops '..' from names: this link is created at 'x/b'.
+        [("x/../b", "."), ("escape", "x/b/../../x")],
+        # A loop never resolves.
+        [("a", "b"), ("b", "a")],
+    ],
+)
+def test_rejects_link_escaping_through_other_links(tmp_path, links):
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w") as zipf:
+        zipf.writestr("safe.txt", "safe content")
+        for name, target in links:
+            make_link(zipf, name, target)
+    output_directory = tmp_path / "output"
+
+    with pytest.raises(ZiprError, match="Unsafe link"):
+        extract_archive(str(archive), str(output_directory))
+
+    assert not (output_directory / "safe.txt").exists()
+
+
+@pytest.mark.integration
+def test_rejects_link_escaping_through_a_link_already_on_disk(tmp_path):
+    output_directory = tmp_path / "output"
+    output_directory.mkdir()
+    (output_directory / "b").symlink_to(".")
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w") as zipf:
+        make_link(zipf, "b/escape", "../x")
+
+    with pytest.raises(ZiprError, match="Unsafe link"):
+        extract_archive(str(archive), str(output_directory))
+
+
+@pytest.mark.integration
+def test_rejects_dotdot_after_a_path_a_later_archive_could_turn_into_a_link(
+    tmp_path,
+):
+    first = tmp_path / "first.zip"
+    with zipfile.ZipFile(first, "w") as zipf:
+        make_link(zipf, "dormant", "missing/../x")
+    output_directory = tmp_path / "output"
+
+    with pytest.raises(ZiprError, match="Unsafe link"):
+        extract_archive(str(first), str(output_directory))
+
+
+@pytest.mark.integration
+def test_accepts_links_resolving_inside_the_destination(tmp_path):
+    archive = tmp_path / "archive.zip"
+    with zipfile.ZipFile(archive, "w") as zipf:
+        zipf.writestr("lib/libfoo.so.1", "binary")
+        zipf.writestr("bin/tool", "binary")
+        make_link(zipf, "lib/libfoo.so", "libfoo.so.1")
+        make_link(zipf, "current", "lib")
+        make_link(zipf, "bin/lib", "../current/libfoo.so")
+        make_link(zipf, "self", ".")
+        make_link(zipf, "deep", "self/self/lib/../bin")
+    output_directory = tmp_path / "output"
+
+    extract_archive(str(archive), str(output_directory))
+
+    assert (output_directory / "bin" / "lib").read_text() == "binary"
+    assert (output_directory / "deep" / "tool").read_text() == "binary"
+
+
+@pytest.mark.integration
 def test_rejects_member_stored_below_a_link(tmp_path):
     archive = tmp_path / "archive.zip"
     with zipfile.ZipFile(archive, "w") as zipf:
